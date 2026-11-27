@@ -2,8 +2,9 @@
 # Installs HAProxy and load-balances web-01 and web-02 with roundrobin
 apt-get -y update
 apt-get -y install haproxy
-if ! grep -q "backend web_back" /etc/haproxy/haproxy.cfg; then
-    cat >> /etc/haproxy/haproxy.cfg << 'CONF'
+CONFIG="/etc/haproxy/haproxy.cfg"
+if ! grep -q "backend web_back" "$CONFIG"; then
+    cat >> "$CONFIG" << 'CONF'
 
 frontend web_front
     bind *:80
@@ -16,6 +17,12 @@ backend web_back
     server 7245-web-01 16.60.187.37:80 check
     server 7245-web-02 18.133.243.199:80 check
 CONF
+fi
+if haproxy -v | grep -q -E "version [2-9]"; then
+    if ! grep -q "h1-case-adjust x-served-by" "$CONFIG"; then
+        sed -i '/^global/a \\th1-case-adjust x-served-by X-Served-By' "$CONFIG"
+        sed -i '/^frontend web_front/a \\toption h1-case-adjust-bogus-client' "$CONFIG"
+    fi
 fi
 if grep -q "^ENABLED" /etc/default/haproxy; then
     sed -i 's/^ENABLED=.*/ENABLED=1/' /etc/default/haproxy
